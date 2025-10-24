@@ -115,7 +115,8 @@ def save_structures(
         structures: sequence of structures.
     """
     ase_atoms = [AseAtomsAdaptor.get_atoms(x) for x in structures]
-    batch_res_dir = output_path / f"batch_{batch_idx}"
+    # batch_res_dir = output_path / f"batch_{batch_idx}"
+    batch_res_dir = output_path
     try:
         os.makedirs(batch_res_dir, exist_ok=True)
         if output_extxyz_file:
