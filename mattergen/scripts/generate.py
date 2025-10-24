@@ -25,7 +25,7 @@ def main(
     sampling_config_path: str | None = None,
     sampling_config_name: str = "default",
     sampling_config_overrides: list[str] | None = None,
-    record_trajectories: bool = True,
+    record_trajectories: bool = False,
     diffusion_guidance_factor: float | None = None,
     strict_checkpoint_loading: bool = True,
     target_compositions: list[dict[str, int]] | None = None,

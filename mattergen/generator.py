@@ -9,7 +9,6 @@ from zipfile import ZipFile
 
 import ase.io
 import hydra
-import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from pymatgen.core.structure import Structure
@@ -41,7 +40,7 @@ def draw_samples_from_sampler(
     properties_to_condition_on: TargetProperty | None = None,
     output_path: Path | None = None,
     cfg: DictConfig | None = None,
-    record_trajectories: bool = True,
+    record_trajectories: bool = False,
     progress_callback: ProgressCallback | None = None,
 ) -> list[Structure]:
 
@@ -51,7 +50,6 @@ def draw_samples_from_sampler(
     # we cannot conditional sample on something on which the model was not trained to condition on
     assert all([key in sampler.diffusion_module.model.cond_fields_model_was_trained_on for key in properties_to_condition_on.keys()])  # type: ignore
 
-    all_samples_list = []
     all_trajs_list = []
     for batch_idx, (conditioning_data, mask) in enumerate(tqdm(condition_loader, desc="Generating samples")):
         if progress_callback is not None:
@@ -63,38 +61,35 @@ def draw_samples_from_sampler(
             all_trajs_list.extend(list_of_time_steps_to_list_of_trajectories(intermediate_samples))
         else:
             sample, mean = sampler.sample(conditioning_data, mask)
-        all_samples_list.extend(mean.to_data_list())
+        
+        curr_batch_samples = collate(mean.to_data_list())
+        assert isinstance(curr_batch_samples, ChemGraph)
+        lengths, angles = lattice_matrix_to_params_torch(curr_batch_samples.cell)
+        curr_batch_samples = curr_batch_samples.replace(lengths=lengths, angles=angles)
+        generated_strucs = structure_from_model_output(
+            curr_batch_samples["pos"].reshape(-1, 3),
+            curr_batch_samples["atomic_numbers"].reshape(-1),
+            curr_batch_samples["lengths"].reshape(-1, 3),
+            curr_batch_samples["angles"].reshape(-1, 3),
+            curr_batch_samples["num_atoms"].reshape(-1),
+        )
+        if output_path is not None:
+            assert cfg is not None
+            # Save structures to disk in both a extxyz file and a compressed zip file.
+            # do this before uploading to mongo in case there is an authentication error
+            save_structures(output_path, generated_strucs, batch_idx=batch_idx)
+
+            if record_trajectories:
+                dump_trajectories(
+                    output_path=output_path,
+                    all_trajs_list=all_trajs_list,
+                )
 
     if progress_callback is not None:
         # log 100% progress
         progress_callback(progress=1.0)
 
-    all_samples = collate(all_samples_list)
-    assert isinstance(all_samples, ChemGraph)
-    lengths, angles = lattice_matrix_to_params_torch(all_samples.cell)
-    all_samples = all_samples.replace(lengths=lengths, angles=angles)
-
-    generated_strucs = structure_from_model_output(
-        all_samples["pos"].reshape(-1, 3),
-        all_samples["atomic_numbers"].reshape(-1),
-        all_samples["lengths"].reshape(-1, 3),
-        all_samples["angles"].reshape(-1, 3),
-        all_samples["num_atoms"].reshape(-1),
-    )
-
-    if output_path is not None:
-        assert cfg is not None
-        # Save structures to disk in both a extxyz file and a compressed zip file.
-        # do this before uploading to mongo in case there is an authentication error
-        save_structures(output_path, generated_strucs)
-
-        if record_trajectories:
-            dump_trajectories(
-                output_path=output_path,
-                all_trajs_list=all_trajs_list,
-            )
-
-    return generated_strucs
+    return "Succeed!"
 
 
 def list_of_time_steps_to_list_of_trajectories(
@@ -202,7 +197,7 @@ class CrystalGenerator:
     sampling_config_path: Path | None = None
     sampling_config_name: str = "default"
 
-    record_trajectories: bool = True  # store all intermediate samples by default
+    record_trajectories: bool = False  # store all intermediate samples by default
 
     # These attributes are set when prepare() method is called.
     _model: DiffusionLightningModule | None = None

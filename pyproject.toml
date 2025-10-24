@@ -42,6 +42,7 @@ classifiers = [
 ]
 
 dependencies = [
+"python-ulid",
 "ase<=3.25.0",
 "autopep8",
 "cachetools",

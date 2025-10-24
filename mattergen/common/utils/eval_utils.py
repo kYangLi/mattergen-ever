@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Sequence
 from zipfile import ZipFile
+from ulid import ULID
 
 import ase.io
 import hydra
@@ -103,7 +104,10 @@ def get_crystals_list(
     return crystal_array_list
 
 
-def save_structures(output_path: Path, structures: Sequence[Structure]) -> None:
+def save_structures(
+    output_path: Path, structures: Sequence[Structure],
+    batch_idx=1, output_extxyz_file=False
+) -> None:
     """Save structures to disk in a extxyz file and a compressed zip file containing cif files.
 
     Args:
@@ -111,13 +115,18 @@ def save_structures(output_path: Path, structures: Sequence[Structure]) -> None:
         structures: sequence of structures.
     """
     ase_atoms = [AseAtomsAdaptor.get_atoms(x) for x in structures]
+    batch_res_dir = output_path / f"batch_{batch_idx}"
     try:
-        ase.io.write(output_path / GENERATED_CRYSTALS_EXTXYZ_FILE_NAME, ase_atoms)
-
-        with ZipFile(output_path / GENERATED_CRYSTALS_ZIP_FILE_NAME, "w") as zip_obj:
-            for ix, ase_atom in enumerate(ase_atoms):
-                ase.io.write(f"/tmp/gen_{ix}.cif", ase_atom, format="cif")
-                zip_obj.write(f"/tmp/gen_{ix}.cif", arcname=f"gen_{ix}.cif")
+        os.makedirs(batch_res_dir, exist_ok=True)
+        if output_extxyz_file:
+            ase.io.write(batch_res_dir / GENERATED_CRYSTALS_EXTXYZ_FILE_NAME, ase_atoms)
+        for ix, ase_atom in enumerate(ase_atoms):
+            one_ulid = ULID()
+            current_filename = f"mind_{one_ulid}.cif"
+            ase.io.write(
+                batch_res_dir / current_filename, ase_atom, format="cif"
+            )
+        
     except IOError as e:
         print(f"Got error {e} writing the generated structures to disk.")
 
