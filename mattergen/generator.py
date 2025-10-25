@@ -51,7 +51,9 @@ def draw_samples_from_sampler(
     assert all([key in sampler.diffusion_module.model.cond_fields_model_was_trained_on for key in properties_to_condition_on.keys()])  # type: ignore
 
     all_trajs_list = []
-    for batch_idx, (conditioning_data, mask) in enumerate(tqdm(condition_loader, desc="Generating samples")):
+    for batch_idx, (conditioning_data, mask) in enumerate(
+        tqdm(condition_loader, desc="Generating samples batches")
+    ):
         if progress_callback is not None:
             progress_callback(progress=batch_idx / len(condition_loader))
 
@@ -66,7 +68,7 @@ def draw_samples_from_sampler(
         assert isinstance(curr_batch_samples, ChemGraph)
         lengths, angles = lattice_matrix_to_params_torch(curr_batch_samples.cell)
         curr_batch_samples = curr_batch_samples.replace(lengths=lengths, angles=angles)
-        generated_strucs = structure_from_model_output(
+        generated_structures = structure_from_model_output(
             curr_batch_samples["pos"].reshape(-1, 3),
             curr_batch_samples["atomic_numbers"].reshape(-1),
             curr_batch_samples["lengths"].reshape(-1, 3),
@@ -75,9 +77,7 @@ def draw_samples_from_sampler(
         )
         if output_path is not None:
             assert cfg is not None
-            # Save structures to disk in both a extxyz file and a compressed zip file.
-            # do this before uploading to mongo in case there is an authentication error
-            save_structures(output_path, generated_strucs, batch_idx=batch_idx)
+            save_structures(output_path, generated_structures)
 
             if record_trajectories:
                 dump_trajectories(

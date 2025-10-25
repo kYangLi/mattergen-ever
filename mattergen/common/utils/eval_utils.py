@@ -16,10 +16,6 @@ import torch
 from pymatgen.core import Lattice, Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
-from mattergen.common.globals import (
-    GENERATED_CRYSTALS_EXTXYZ_FILE_NAME,
-    GENERATED_CRYSTALS_ZIP_FILE_NAME,
-)
 from mattergen.common.utils.data_classes import MatterGenCheckpointInfo
 from mattergen.common.utils.globals import get_device
 from mattergen.diffusion.lightning_module import DiffusionLightningModule
@@ -60,7 +56,7 @@ def load_model_diffusion(
             config=cfg.lightning_module,
             strict=args.strict_checkpoint_loading,
         )
-    except hydra.errors.HydraException as e:
+    except hydra.errors.HydraException as _:
         raise
     if len(incompatible_keys.unexpected_keys) > 0:
         raise ValueError(f"Unexpected keys in checkpoint: {incompatible_keys.unexpected_keys}.")
@@ -104,10 +100,7 @@ def get_crystals_list(
     return crystal_array_list
 
 
-def save_structures(
-    output_path: Path, structures: Sequence[Structure],
-    batch_idx=1, output_extxyz_file=False
-) -> None:
+def save_structures(output_path: Path, structures: Sequence[Structure]) -> None:
     """Save structures to disk in a extxyz file and a compressed zip file containing cif files.
 
     Args:
@@ -115,19 +108,14 @@ def save_structures(
         structures: sequence of structures.
     """
     ase_atoms = [AseAtomsAdaptor.get_atoms(x) for x in structures]
-    # batch_res_dir = output_path / f"batch_{batch_idx}"
-    batch_res_dir = output_path
     try:
-        os.makedirs(batch_res_dir, exist_ok=True)
-        if output_extxyz_file:
-            ase.io.write(batch_res_dir / GENERATED_CRYSTALS_EXTXYZ_FILE_NAME, ase_atoms)
+        os.makedirs(output_path, exist_ok=True)
         for ix, ase_atom in enumerate(ase_atoms):
-            one_ulid = ULID()
-            current_filename = f"mind_{one_ulid}.cif"
-            ase.io.write(
-                batch_res_dir / current_filename, ase_atom, format="cif"
-            )
-        
+            one_ulid = str(ULID())
+            sub_dir, sub_sub_dir = one_ulid[-4:-2], one_ulid[-2:]
+            batch_res_dir = output_path / sub_dir / sub_sub_dir / f"MIND-{one_ulid}"
+            os.makedirs(batch_res_dir, exist_ok=True)
+            ase.io.write(batch_res_dir / "POSCAR", ase_atom, format="vasp")
     except IOError as e:
         print(f"Got error {e} writing the generated structures to disk.")
 
