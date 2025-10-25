@@ -10,6 +10,7 @@ from zipfile import ZipFile
 from ulid import ULID
 
 import ase.io
+from ase import build as ase_build
 import hydra
 import numpy as np
 import torch
@@ -107,10 +108,12 @@ def save_structures(output_path: Path, structures: Sequence[Structure]) -> None:
         output_path: path to a directory where the results are written.
         structures: sequence of structures.
     """
-    ase_atoms = [AseAtomsAdaptor.get_atoms(x) for x in structures]
+    ase_atoms = [
+        ase_build.sort(AseAtomsAdaptor.get_atoms(x)) for x in structures
+    ]
     try:
         os.makedirs(output_path, exist_ok=True)
-        for ix, ase_atom in enumerate(ase_atoms):
+        for ase_atom in ase_atoms:
             one_ulid = str(ULID())
             sub_dir, sub_sub_dir = one_ulid[-4:-2], one_ulid[-2:]
             batch_res_dir = output_path / sub_dir / sub_sub_dir / f"MIND-{one_ulid}"
