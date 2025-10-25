@@ -118,7 +118,10 @@ def save_structures(output_path: Path, structures: Sequence[Structure]) -> None:
             sub_dir, sub_sub_dir = one_ulid[-4:-2], one_ulid[-2:]
             batch_res_dir = output_path / sub_dir / sub_sub_dir / f"MIND-{one_ulid}"
             os.makedirs(batch_res_dir, exist_ok=True)
-            ase.io.write(batch_res_dir / "POSCAR", ase_atom, format="vasp")
+            ase.io.write(
+                batch_res_dir / "POSCAR", ase_atom, format="vasp",
+                direct=False, sort=True,
+            )
     except IOError as e:
         print(f"Got error {e} writing the generated structures to disk.")
 
