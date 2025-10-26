@@ -54,6 +54,11 @@ def draw_samples_from_sampler(
     for batch_idx, (conditioning_data, mask) in enumerate(
         tqdm(condition_loader, desc="Generating samples batches")
     ):
+        if (output_path is not None) and os.path.exists(output_path/"STOP"):
+            print("=====================================")
+            print("STOP file found. Stopping generation.")
+            print("=====================================")
+            break
         if progress_callback is not None:
             progress_callback(progress=batch_idx / len(condition_loader))
 
