@@ -15,14 +15,44 @@ from mattergen.common.data.transform import SetProperty, Transform
 from mattergen.common.data.types import TargetProperty
 from mattergen.common.utils.data_utils import create_chem_graph_from_composition
 from mattergen.diffusion.data.batched_data import BatchedData
+from mattergen.common.utils.globals import SELECTED_ATOMIC_SYMBOLS
 
 ConditionLoader = Iterable[tuple[BatchedData, dict[str, torch.Tensor]] | None]
+
+
+def randomly_select_elem(curr_x, exclude_x):
+    elem_list = [
+        v for v in SELECTED_ATOMIC_SYMBOLS
+        if (v not in curr_x) and (v not in exclude_x)
+    ]
+    elem = elem_list[torch.randint(0, len(elem_list), (1,)).item()]
+    return elem
+
+
+def explain_elem_str(x: str) -> str:
+    if '*' not in x:
+        return x
+    new_x = x.split("-")
+    new_x, x_w = new_x[:-1], new_x[-1]
+    x_star, x_exclude = x_w.split("!")
+    max_other_elem_num = len(x_star)
+    x_exclude = x_exclude.split(",")
+    random_elem = randomly_select_elem(new_x, x_exclude)
+    new_x.append(random_elem)
+    for _ in range(max_other_elem_num-1):
+        if torch.rand(1).item() < 0.5:
+            random_elem = randomly_select_elem(new_x, x_exclude)
+            new_x.append(random_elem)
+    new_x = '-'.join(new_x)
+    return new_x
 
 
 def _collate_fn(
     batch: Sequence[ChemGraph],
     collate_fn: Callable[[Sequence[ChemGraph]], BatchedData],
 ) -> tuple[BatchedData, None]:
+    for i, bi in enumerate(batch):
+        batch[i] = bi.replace(chemical_system=explain_elem_str(bi.chemical_system))
     return collate_fn(batch), None
 
 
