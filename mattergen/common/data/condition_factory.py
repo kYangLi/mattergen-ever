@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 from functools import partial
+from itertools import accumulate
 from typing import Callable, Iterable, Sequence
 
 import torch
@@ -32,17 +33,32 @@ def randomly_select_elem(curr_x, exclude_x):
 def explain_elem_str(x: str) -> str:
     if '*' not in x:
         return x
-    new_x = x.split("-")
-    new_x, x_w = new_x[:-1], new_x[-1]
-    x_star, x_exclude = x_w.split("!")
+    if '-' in x:
+        new_x = x.split("-")
+        new_x, x_w = new_x[:-1], new_x[-1]
+    else:
+        new_x, x_w = [], x
+    if '!' in x_w:
+        x_star, x_exclude = x_w.split("!")
+        x_exclude = x_exclude.split(",")
+    else:
+        x_star, x_exclude = x_w, []
+    if '%' in x_star:
+        x_star, x_star_ratio = x_star.split("%")
+        x_star_ratio = x_star_ratio.split(",")
+        x_star_ratio = [int(v) for v in x_star_ratio]
+    else:
+        x_star_ratio = [1 for _ in x_star]
+    x_star_ratio = [v/sum(x_star_ratio) for v in x_star_ratio]
+    x_star_ratio = list(accumulate(x_star_ratio))
+    _peek = torch.rand(1).item()
     max_other_elem_num = len(x_star)
-    x_exclude = x_exclude.split(",")
-    random_elem = randomly_select_elem(new_x, x_exclude)
-    new_x.append(random_elem)
-    for _ in range(max_other_elem_num-1):
-        if torch.rand(1).item() < 0.5:
-            random_elem = randomly_select_elem(new_x, x_exclude)
-            new_x.append(random_elem)
+    other_elem_num = min(
+        sum([_peek > v for v in x_star_ratio]) + 1, max_other_elem_num
+    )
+    for _ in range(other_elem_num):
+        random_elem = randomly_select_elem(new_x, x_exclude)
+        new_x.append(random_elem)
     new_x = '-'.join(new_x)
     return new_x
 
