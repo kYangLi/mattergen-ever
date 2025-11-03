@@ -67,8 +67,9 @@ def _collate_fn(
     batch: Sequence[ChemGraph],
     collate_fn: Callable[[Sequence[ChemGraph]], BatchedData],
 ) -> tuple[BatchedData, None]:
-    for i, bi in enumerate(batch):
-        batch[i] = bi.replace(chemical_system=explain_elem_str(bi.chemical_system))
+    if hasattr(batch[0], 'chemical_system'):
+        for i, bi in enumerate(batch):
+            batch[i] = bi.replace(chemical_system=explain_elem_str(bi.chemical_system))
     return collate_fn(batch), None
 
 
