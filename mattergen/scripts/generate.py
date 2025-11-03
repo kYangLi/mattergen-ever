@@ -17,6 +17,7 @@ def main(
     output_path: str,
     pretrained_name: PRETRAINED_MODEL_NAME | None = None,
     model_path: str | None = None,
+    num_atoms_distribution: str = "ALEX_MP_20",
     batch_size: int = 64,
     num_batches: int = 1,
     config_overrides: list[str] | None = None,
@@ -95,6 +96,7 @@ def main(
             diffusion_guidance_factor if diffusion_guidance_factor is not None else 0.0
         ),
         target_compositions_dict=target_compositions,
+        num_atoms_distribution=num_atoms_distribution,
         progress_callback=progress_callback,
     )
     return generator.generate(output_dir=Path(output_path))
